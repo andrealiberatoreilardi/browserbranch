@@ -99,9 +99,8 @@ struct ProfileChooserView: View {
         .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    @ViewBuilder
     private func profileChoice(_ profile: BrowserProfile, at index: Int) -> some View {
-        let button = Button {
+        Button {
             onSelect(profile)
         } label: {
             profileButton(profile, shortcut: index < 9 ? index + 1 : nil)
@@ -110,16 +109,5 @@ struct ProfileChooserView: View {
         .onHover { isHovering in
             hoveredProfileID = isHovering ? profile.id : nil
         }
-
-        if index < 9 {
-            button.keyboardShortcut(shortcut(for: index), modifiers: [])
-        } else {
-            button
-        }
-    }
-
-    private func shortcut(for index: Int) -> KeyEquivalent {
-        guard index < 9, let character = "\(index + 1)".first else { return KeyEquivalent("0") }
-        return KeyEquivalent(character)
     }
 }

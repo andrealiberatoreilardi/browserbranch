@@ -1,5 +1,15 @@
 import Foundation
 
+struct ChromiumProfileSnapshot {
+    let profiles: [BrowserProfile]
+    let lastUsedProfileDirectory: String?
+
+    static let empty = ChromiumProfileSnapshot(
+        profiles: [],
+        lastUsedProfileDirectory: nil
+    )
+}
+
 struct ChromiumProfileService {
     private let fileManager: FileManager
 
@@ -7,12 +17,12 @@ struct ChromiumProfileService {
         self.fileManager = fileManager
     }
 
-    func profiles(for browser: Browser) -> [BrowserProfile] {
-        guard let userDataDirectory = browser.profileDataDirectory else { return [] }
+    func snapshot(for browser: Browser) -> ChromiumProfileSnapshot {
+        guard let userDataDirectory = browser.profileDataDirectory else { return .empty }
         let localStateURL = userDataDirectory.appendingPathComponent("Local State")
-        guard let data = try? Data(contentsOf: localStateURL) else { return [] }
+        guard let data = try? Data(contentsOf: localStateURL) else { return .empty }
 
-        return Self.parseProfiles(
+        return Self.parseSnapshot(
             from: data,
             browserIdentifier: browser.id,
             userDataDirectory: userDataDirectory,
@@ -20,27 +30,39 @@ struct ChromiumProfileService {
         )
     }
 
-    static func parseProfiles(
+    static func parseSnapshot(
         from data: Data,
         browserIdentifier: String,
         userDataDirectory: URL,
         fileManager: FileManager = .default
-    ) -> [BrowserProfile] {
+    ) -> ChromiumProfileSnapshot {
         guard
             let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
             let profile = root["profile"] as? [String: Any],
             let infoCache = profile["info_cache"] as? [String: [String: Any]]
         else {
-            return []
+            return .empty
         }
 
         let configuredOrder = profile["profiles_order"] as? [String] ?? []
         let order = Dictionary(uniqueKeysWithValues: configuredOrder.enumerated().map { ($1, $0) })
+        let configuredLastUsed = profile["last_used"] as? String
+        let lastUsedProfileDirectory: String?
+        if
+            let configuredLastUsed,
+            isValidDirectoryName(configuredLastUsed),
+            infoCache[configuredLastUsed] != nil
+        {
+            lastUsedProfileDirectory = configuredLastUsed
+        } else if infoCache["Default"] != nil {
+            lastUsedProfileDirectory = "Default"
+        } else {
+            lastUsedProfileDirectory = nil
+        }
 
-        return infoCache.compactMap { directoryName, metadata -> BrowserProfile? in
+        let profiles = infoCache.compactMap { directoryName, metadata -> BrowserProfile? in
             guard
-                !directoryName.isEmpty,
-                URL(fileURLWithPath: directoryName).lastPathComponent == directoryName
+                isValidDirectoryName(directoryName)
             else {
                 return nil
             }
@@ -73,6 +95,15 @@ struct ChromiumProfileService {
             if leftPosition != rightPosition { return leftPosition < rightPosition }
             return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
         }
+
+        return ChromiumProfileSnapshot(
+            profiles: profiles,
+            lastUsedProfileDirectory: lastUsedProfileDirectory
+        )
+    }
+
+    private static func isValidDirectoryName(_ value: String) -> Bool {
+        !value.isEmpty && URL(fileURLWithPath: value).lastPathComponent == value
     }
 
     private static func avatarURL(

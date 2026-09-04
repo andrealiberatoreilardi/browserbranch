@@ -22,6 +22,7 @@ final class AppCoordinator {
 
     func showTestChooser() {
         guard let url = URL(string: "https://example.com/browserbranch") else { return }
+        store.refreshBrowsers()
         prompt(for: url)
     }
 
@@ -72,7 +73,6 @@ final class AppCoordinator {
     }
 
     private func prompt(for url: URL) {
-        store.refreshBrowsers()
         let browsers = store.enabledBrowsers
         guard !browsers.isEmpty else {
             showNoBrowsersAlert()
@@ -120,7 +120,12 @@ final class AppCoordinator {
     }
 
     private func open(_ url: URL, with browser: Browser, profile: BrowserProfile? = nil) {
-        browserService.open(url, with: browser, profile: profile) { error in
+        browserService.open(
+            url,
+            with: browser,
+            profile: profile,
+            lastUsedProfileDirectory: store.lastUsedProfileDirectory(for: browser)
+        ) { error in
             guard let error else { return }
             let alert = NSAlert(error: error)
             alert.messageText = "BrowserBranch couldn’t open this link"

@@ -25,6 +25,7 @@ final class SettingsStore: ObservableObject {
     private let defaults: UserDefaults
     private let browserService: BrowserService
     private let profileService: ChromiumProfileService
+    private var lastUsedProfileDirectories: [String: String] = [:]
 
     private enum Keys {
         static let browserOrder = "browserOrder"
@@ -75,9 +76,12 @@ final class SettingsStore: ObservableObject {
         )
 
         let identifiers = Set(discovered.map(\.id))
-        browserOrder = browserOrder.filter { identifiers.contains($0) }
-        for browser in discovered where !browserOrder.contains(browser.id) {
-            browserOrder.append(browser.id)
+        var updatedOrder = browserOrder.filter { identifiers.contains($0) }
+        for browser in discovered where !updatedOrder.contains(browser.id) {
+            updatedOrder.append(browser.id)
+        }
+        if updatedOrder != browserOrder {
+            browserOrder = updatedOrder
         }
 
         let position = Dictionary(uniqueKeysWithValues: browserOrder.enumerated().map { ($1, $0) })
@@ -114,6 +118,10 @@ final class SettingsStore: ObservableObject {
         return profiles(for: browser).filter {
             !preferences.disabledProfileDirectories.contains($0.directoryName)
         }
+    }
+
+    func lastUsedProfileDirectory(for browser: Browser) -> String? {
+        lastUsedProfileDirectories[browser.id]
     }
 
     func isProfileManagementEnabled(for browser: Browser) -> Bool {
@@ -168,10 +176,15 @@ final class SettingsStore: ObservableObject {
 
     private func refreshProfiles() {
         var discoveredByBrowser: [String: [BrowserProfile]] = [:]
+        var discoveredLastUsedDirectories: [String: String] = [:]
         var updatedPreferences = profilePreferences
 
         for browser in browsers where browser.supportsProfiles {
-            let discovered = profileService.profiles(for: browser)
+            let snapshot = profileService.snapshot(for: browser)
+            let discovered = snapshot.profiles
+            if let lastUsedProfileDirectory = snapshot.lastUsedProfileDirectory {
+                discoveredLastUsedDirectories[browser.id] = lastUsedProfileDirectory
+            }
             let availableDirectories = Set(discovered.map(\.directoryName))
             var preferences = updatedPreferences[browser.id] ?? BrowserProfilePreferences()
 
@@ -194,6 +207,7 @@ final class SettingsStore: ObservableObject {
         }
 
         profilesByBrowserIdentifier = discoveredByBrowser
+        lastUsedProfileDirectories = discoveredLastUsedDirectories
         if updatedPreferences != profilePreferences {
             profilePreferences = updatedPreferences
         }

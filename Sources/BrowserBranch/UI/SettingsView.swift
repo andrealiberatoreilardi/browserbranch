@@ -507,7 +507,7 @@ private struct AboutView: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("BrowserBranch")
                         .font(.title.bold())
-                    Text("Version 0.1.0")
+                    Text("Version 0.1.1")
                         .foregroundStyle(.secondary)
                     Text("MIT License")
                         .font(.caption)

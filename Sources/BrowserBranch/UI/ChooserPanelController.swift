@@ -6,27 +6,38 @@ final class ChooserPanelController {
     private var panel: ChooserPanel?
 
     func show(url: URL, browsers: [Browser], onSelect: @escaping (Browser) -> Void) {
-        panel?.close()
+        retire(panel)
 
         let width = min(max(CGFloat(browsers.count) * 112 + 56, 360), 760)
         let size = NSSize(width: width, height: 196)
         let panel = makePanel(size: size)
+        panel.onNumberKey = { [weak self, weak panel] index in
+            guard browsers.indices.contains(index) else { return }
+            self?.retire(panel) {
+                onSelect(browsers[index])
+            }
+        }
 
         let rootView = ChooserView(
             url: url,
             browsers: browsers,
-            onSelect: { [weak panel] browser in
-                panel?.close()
-                onSelect(browser)
+            onSelect: { [weak self, weak panel] browser in
+                self?.retire(panel) {
+                    onSelect(browser)
+                }
             },
-            onCancel: { [weak panel] in panel?.close() }
+            onCancel: { [weak self, weak panel] in
+                self?.retire(panel)
+            }
         )
 
         present(
             panel,
             size: size,
             rootView: rootView,
-            onEscape: { [weak panel] in panel?.close() }
+            onEscape: { [weak self, weak panel] in
+                self?.retire(panel)
+            }
         )
     }
 
@@ -37,27 +48,51 @@ final class ChooserPanelController {
         onSelect: @escaping (BrowserProfile) -> Void,
         onBack: @escaping () -> Void
     ) {
-        panel?.close()
+        retire(panel)
 
         let width = min(max(CGFloat(profiles.count) * 112 + 56, 380), 760)
         let size = NSSize(width: width, height: 216)
         let panel = makePanel(size: size)
-        let goBack = { [weak panel] in
-            panel?.close()
-            onBack()
+        panel.onNumberKey = { [weak self, weak panel] index in
+            guard profiles.indices.contains(index) else { return }
+            self?.retire(panel) {
+                onSelect(profiles[index])
+            }
+        }
+        let goBack: () -> Void = { [weak self, weak panel] in
+            guard let self else { return }
+            self.retire(panel, then: onBack)
         }
         let rootView = ProfileChooserView(
             url: url,
             browser: browser,
             profiles: profiles,
-            onSelect: { [weak panel] profile in
-                panel?.close()
-                onSelect(profile)
+            onSelect: { [weak self, weak panel] profile in
+                self?.retire(panel) {
+                    onSelect(profile)
+                }
             },
             onBack: goBack
         )
 
         present(panel, size: size, rootView: rootView, onEscape: goBack)
+    }
+
+    private func retire(_ panel: ChooserPanel?, then action: (() -> Void)? = nil) {
+        guard let panel else {
+            action?()
+            return
+        }
+
+        panel.orderOut(nil)
+        if self.panel === panel {
+            self.panel = nil
+        }
+        action?()
+
+        DispatchQueue.main.async {
+            panel.close()
+        }
     }
 
     private func makePanel(size: NSSize) -> ChooserPanel {
@@ -88,8 +123,8 @@ final class ChooserPanelController {
         position(panel)
 
         self.panel = panel
-        NSApplication.shared.activate(ignoringOtherApps: true)
-        panel.makeKeyAndOrderFront(nil)
+        panel.orderFrontRegardless()
+        panel.makeKey()
     }
 
     private func position(_ panel: NSPanel) {
@@ -112,6 +147,7 @@ final class ChooserPanelController {
 
 private final class ChooserPanel: NSPanel {
     var onEscape: (() -> Void)?
+    var onNumberKey: ((Int) -> Void)?
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
@@ -121,6 +157,18 @@ private final class ChooserPanel: NSPanel {
             onEscape?()
             return
         }
+
+        let blockedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
+        if
+            event.modifierFlags.intersection(blockedModifiers).isEmpty,
+            let characters = event.charactersIgnoringModifiers,
+            let number = Int(characters),
+            (1...9).contains(number)
+        {
+            onNumberKey?(number - 1)
+            return
+        }
+
         super.keyDown(with: event)
     }
 }

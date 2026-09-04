@@ -90,9 +90,8 @@ struct ChooserView: View {
         .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
-    @ViewBuilder
     private func browserChoice(_ browser: Browser, at index: Int) -> some View {
-        let button = Button {
+        Button {
             onSelect(browser)
         } label: {
             browserButton(browser, shortcut: index < 9 ? index + 1 : nil)
@@ -101,16 +100,5 @@ struct ChooserView: View {
         .onHover { isHovering in
             hoveredBrowserID = isHovering ? browser.id : nil
         }
-
-        if index < 9 {
-            button.keyboardShortcut(shortcut(for: index), modifiers: [])
-        } else {
-            button
-        }
-    }
-
-    private func shortcut(for index: Int) -> KeyEquivalent {
-        guard index < 9, let character = "\(index + 1)".first else { return KeyEquivalent("0") }
-        return KeyEquivalent(character)
     }
 }

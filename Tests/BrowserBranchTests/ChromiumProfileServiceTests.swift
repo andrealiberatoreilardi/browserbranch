@@ -16,6 +16,7 @@ final class ChromiumProfileServiceTests: XCTestCase {
             """
             {
               "profile": {
+                "last_used": "Profile 2",
                 "profiles_order": ["Profile 2", "Default"],
                 "info_cache": {
                   "Default": { "name": "Personal", "user_name": "personal@example.test" },
@@ -30,16 +31,18 @@ final class ChromiumProfileServiceTests: XCTestCase {
             """.data(using: .utf8)
         )
 
-        let profiles = ChromiumProfileService.parseProfiles(
+        let snapshot = ChromiumProfileService.parseSnapshot(
             from: data,
             browserIdentifier: "com.google.Chrome",
             userDataDirectory: root
         )
+        let profiles = snapshot.profiles
 
         XCTAssertEqual(profiles.map(\.directoryName), ["Profile 2", "Default"])
         XCTAssertEqual(profiles.first?.name, "Work")
         XCTAssertEqual(profiles.first?.email, "work@example.test")
         XCTAssertEqual(profiles.first?.avatarImageURL, avatarURL)
+        XCTAssertEqual(snapshot.lastUsedProfileDirectory, "Profile 2")
     }
 
     func testOldRoutingActionJSONRemainsCompatible() throws {
@@ -70,6 +73,28 @@ final class ChromiumProfileServiceTests: XCTestCase {
                 "--ignore-profile-directory-if-not-exists",
                 "https://example.com/path?q=hello%20world"
             ]
+        )
+    }
+
+    @MainActor
+    func testLastUsedProfileCanUseFastSystemOpen() {
+        XCTAssertFalse(
+            BrowserService.requiresExplicitProfileLaunch(
+                profileDirectory: "Profile 3",
+                lastUsedProfileDirectory: "Profile 3"
+            )
+        )
+        XCTAssertTrue(
+            BrowserService.requiresExplicitProfileLaunch(
+                profileDirectory: "Profile 3",
+                lastUsedProfileDirectory: "Profile 2"
+            )
+        )
+        XCTAssertTrue(
+            BrowserService.requiresExplicitProfileLaunch(
+                profileDirectory: "Profile 3",
+                lastUsedProfileDirectory: nil
+            )
         )
     }
 }

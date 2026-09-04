@@ -8,6 +8,7 @@ final class BrowserService: ObservableObject {
     @Published private(set) var statusMessage: String?
 
     private let workspace: NSWorkspace
+    private var iconCache: [String: NSImage] = [:]
 
     init(workspace: NSWorkspace = .shared) {
         self.workspace = workspace
@@ -23,20 +24,46 @@ final class BrowserService: ObservableObject {
                 guard
                     let bundle = Bundle(url: applicationURL),
                     let identifier = bundle.bundleIdentifier,
-                    identifier != excludingBundleIdentifier,
-                    isLikelyWebBrowser(identifier: identifier, name: displayName(for: bundle, at: applicationURL)),
-                    seen.insert(identifier).inserted
+                    identifier != excludingBundleIdentifier
                 else {
                     return nil
                 }
 
                 let displayName = displayName(for: bundle, at: applicationURL)
+                guard
+                    isLikelyWebBrowser(identifier: identifier, name: displayName),
+                    seen.insert(identifier).inserted
+                else {
+                    return nil
+                }
+
+                let icon: NSImage
+                if let cachedIcon = iconCache[identifier] {
+                    icon = cachedIcon
+                } else {
+                    let discoveredIcon = workspace.icon(forFile: applicationURL.path)
+                    iconCache[identifier] = discoveredIcon
+                    icon = discoveredIcon
+                }
+
+                let executableURL = (bundle.object(
+                    forInfoDictionaryKey: "CFBundleExecutable"
+                ) as? String).map {
+                    applicationURL
+                        .appendingPathComponent("Contents/MacOS")
+                        .appendingPathComponent($0)
+                }
 
                 return Browser(
                     bundleIdentifier: identifier,
                     name: displayName,
                     applicationURL: applicationURL,
-                    profileDataDirectory: profileDataDirectory(for: identifier)
+                    profileDataDirectory: profileDataDirectory(for: identifier),
+                    executableURL: executableURL,
+                    icon: icon,
+                    isRunning: !NSRunningApplication.runningApplications(
+                        withBundleIdentifier: identifier
+                    ).isEmpty
                 )
             }
             .sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -133,15 +160,39 @@ final class BrowserService: ObservableObject {
         _ url: URL,
         with browser: Browser,
         profile: BrowserProfile? = nil,
+        lastUsedProfileDirectory: String? = nil,
         completion: ((Error?) -> Void)? = nil
     ) {
-        if let profile {
+        if
+            let profile,
+            Self.requiresExplicitProfileLaunch(
+                profileDirectory: profile.directoryName,
+                lastUsedProfileDirectory: lastUsedProfileDirectory
+            )
+        {
             openChromium(url, with: browser, profile: profile, completion: completion)
             return
         }
 
+        openUsingWorkspace(url, with: browser, completion: completion)
+    }
+
+    private func openUsingWorkspace(
+        _ url: URL,
+        with browser: Browser,
+        completion: ((Error?) -> Void)?
+    ) {
+        let runningApplication = NSRunningApplication
+            .runningApplications(withBundleIdentifier: browser.bundleIdentifier)
+            .first(where: { !$0.isTerminated })
+
         let configuration = NSWorkspace.OpenConfiguration()
-        configuration.activates = true
+        if let runningApplication, runningApplication.activate(options: []) {
+            // Start the app switch immediately and let Launch Services only deliver the URL.
+            configuration.activates = false
+        } else {
+            configuration.activates = true
+        }
 
         workspace.open(
             [url],
@@ -162,16 +213,12 @@ final class BrowserService: ObservableObject {
     ) {
         guard
             profile.browserIdentifier == browser.id,
-            let bundle = Bundle(url: browser.applicationURL),
-            let executableName = bundle.object(forInfoDictionaryKey: "CFBundleExecutable") as? String
+            let executableURL = browser.executableURL
         else {
             completion?(ProfileLaunchError.invalidBrowserBundle)
             return
         }
 
-        let executableURL = browser.applicationURL
-            .appendingPathComponent("Contents/MacOS")
-            .appendingPathComponent(executableName)
         let process = Process()
         process.executableURL = executableURL
         process.arguments = Self.chromiumLaunchArguments(
@@ -184,6 +231,13 @@ final class BrowserService: ObservableObject {
         } catch {
             completion?(error)
         }
+    }
+
+    static func requiresExplicitProfileLaunch(
+        profileDirectory: String,
+        lastUsedProfileDirectory: String?
+    ) -> Bool {
+        profileDirectory != lastUsedProfileDirectory
     }
 
     static func chromiumLaunchArguments(for url: URL, profileDirectory: String) -> [String] {
