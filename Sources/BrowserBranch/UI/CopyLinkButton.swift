@@ -2,6 +2,7 @@ import SwiftUI
 
 struct CopyLinkButton: View {
     var height: CGFloat = 98
+    let shortcut: CopyLinkShortcut
     let onCopy: () -> Void
 
     @State private var isHovered = false
@@ -14,11 +15,13 @@ struct CopyLinkButton: View {
                         .font(.system(size: 32, weight: .regular))
                         .frame(width: 48, height: 48)
 
-                    Text("\\")
+                    Text(verbatim: shortcut.displayLabel)
                         .font(.system(size: 10, weight: .bold, design: .rounded))
                         .foregroundStyle(.white)
-                        .frame(width: 18, height: 18)
-                        .background(Circle().fill(Color.accentColor))
+                        .padding(.horizontal, 4)
+                        .frame(minWidth: 18)
+                        .frame(height: 18)
+                        .background(Capsule().fill(Color.accentColor))
                         .offset(x: 6, y: -6)
                         .accessibilityHidden(true)
                 }
@@ -37,6 +40,6 @@ struct CopyLinkButton: View {
         .onHover { isHovered = $0 }
         .accessibilityLabel("Copia link")
         .accessibilityHint("Copia l’indirizzo completo negli appunti")
-        .help(Text(verbatim: "Copia link (\\)"))
+        .help(Text(verbatim: "Copia link (\(shortcut.displayLabel))"))
     }
 }

@@ -4,6 +4,7 @@ struct ProfileChooserView: View {
     let url: URL
     let browser: Browser
     let profiles: [BrowserProfile]
+    let copyLinkShortcut: CopyLinkShortcut
     let onSelect: (BrowserProfile) -> Void
     let onCopy: () -> Void
     let onBack: () -> Void
@@ -42,7 +43,7 @@ struct ProfileChooserView: View {
             }
 
             HStack(spacing: 10) {
-                CopyLinkButton(height: 112, onCopy: onCopy)
+                CopyLinkButton(height: 112, shortcut: copyLinkShortcut, onCopy: onCopy)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {

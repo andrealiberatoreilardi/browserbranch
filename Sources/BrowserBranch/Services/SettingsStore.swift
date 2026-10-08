@@ -10,6 +10,9 @@ final class SettingsStore: ObservableObject {
     @Published var defaultAction: RoutingAction {
         didSet { persist(defaultAction, key: Keys.defaultAction) }
     }
+    @Published var copyLinkShortcut: CopyLinkShortcut {
+        didSet { persist(copyLinkShortcut, key: Keys.copyLinkShortcut) }
+    }
     @Published private(set) var profilesByBrowserIdentifier: [String: [BrowserProfile]] = [:]
     @Published private(set) var profilePreferences: [String: BrowserProfilePreferences] {
         didSet { persist(profilePreferences, key: Keys.profilePreferences) }
@@ -32,6 +35,7 @@ final class SettingsStore: ObservableObject {
         static let disabledBrowsers = "disabledBrowsers"
         static let rules = "rules"
         static let defaultAction = "defaultAction"
+        static let copyLinkShortcut = "copyLinkShortcut"
         static let profilePreferences = "profilePreferences"
         static let hasCompletedFirstLaunch = "hasCompletedFirstLaunch"
     }
@@ -51,6 +55,11 @@ final class SettingsStore: ObservableObject {
             RoutingAction.self,
             from: defaults.data(forKey: Keys.defaultAction)
         ) ?? .prompt
+        let savedShortcut = Self.decode(
+            CopyLinkShortcut.self,
+            from: defaults.data(forKey: Keys.copyLinkShortcut)
+        )
+        self.copyLinkShortcut = savedShortcut.flatMap { $0.isValid ? $0 : nil } ?? .defaultShortcut
         self.profilePreferences = Self.decode(
             [String: BrowserProfilePreferences].self,
             from: defaults.data(forKey: Keys.profilePreferences)

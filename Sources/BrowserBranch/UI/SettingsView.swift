@@ -47,6 +47,7 @@ private struct GeneralSettingsView: View {
     @ObservedObject var store: SettingsStore
     @ObservedObject var browserService: BrowserService
     @State private var profileBrowser: Browser?
+    @State private var shortcutValidationMessage: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -98,6 +99,36 @@ private struct GeneralSettingsView: View {
 
             VStack(alignment: .leading, spacing: 8) {
                 HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Copia link")
+                            .font(.headline)
+                        Text("Keyboard shortcut")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    CopyLinkShortcutRecorder(
+                        shortcut: $store.copyLinkShortcut,
+                        validationMessage: $shortcutValidationMessage
+                    )
+                    .frame(width: 150, height: 28)
+                    Button {
+                        store.copyLinkShortcut = .defaultShortcut
+                        shortcutValidationMessage = nil
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                    }
+                    .accessibilityLabel("Reset copy link shortcut")
+                    .help(Text(verbatim: "Reset to \\"))
+                }
+                Text(shortcutValidationMessage ?? "Click the shortcut, then press a key or combination. Esc cancels.")
+                    .font(.caption)
+                    .foregroundStyle(shortcutValidationMessage == nil ? Color.secondary : Color.red)
+                    .lineLimit(2)
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
                     Text("Browsers")
                         .font(.headline)
                     Spacer()
@@ -113,7 +144,7 @@ private struct GeneralSettingsView: View {
                         description: Text("Install a browser that can open HTTPS links, then reopen settings.")
                     )
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .frame(minHeight: 260)
+                    .frame(minHeight: 180)
                     .background(.quaternary.opacity(0.25), in: RoundedRectangle(cornerRadius: 14))
                 } else {
                     List {
@@ -132,7 +163,7 @@ private struct GeneralSettingsView: View {
                         .onMove(perform: store.moveBrowsers)
                     }
                     .listStyle(.inset(alternatesRowBackgrounds: false))
-                    .frame(minHeight: 260)
+                    .frame(minHeight: 180)
                 }
             }
         }

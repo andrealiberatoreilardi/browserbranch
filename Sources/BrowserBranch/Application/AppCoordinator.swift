@@ -79,7 +79,7 @@ final class AppCoordinator {
             return
         }
 
-        chooser.show(url: url, browsers: browsers) { [weak self] browser in
+        chooser.show(url: url, browsers: browsers, copyLinkShortcut: store.copyLinkShortcut) { [weak self] browser in
             self?.select(browser, for: url)
         }
     }
@@ -111,7 +111,8 @@ final class AppCoordinator {
         chooser.showProfiles(
             url: url,
             browser: browser,
-            profiles: profiles
+            profiles: profiles,
+            copyLinkShortcut: store.copyLinkShortcut
         ) { [weak self] profile in
             self?.open(url, with: browser, profile: profile)
         } onBack: { [weak self] in

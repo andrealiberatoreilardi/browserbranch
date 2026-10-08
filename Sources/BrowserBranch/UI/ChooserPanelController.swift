@@ -5,12 +5,17 @@ import SwiftUI
 final class ChooserPanelController {
     private var panel: ChooserPanel?
 
-    func show(url: URL, browsers: [Browser], onSelect: @escaping (Browser) -> Void) {
+    func show(
+        url: URL,
+        browsers: [Browser],
+        copyLinkShortcut: CopyLinkShortcut,
+        onSelect: @escaping (Browser) -> Void
+    ) {
         retire(panel)
 
         let width = min(max(CGFloat(browsers.count + 1) * 112 + 56, 360), 760)
         let size = NSSize(width: width, height: 196)
-        let panel = makePanel(size: size, url: url)
+        let panel = makePanel(size: size, url: url, copyLinkShortcut: copyLinkShortcut)
         panel.onNumberKey = { [weak self, weak panel] index in
             guard browsers.indices.contains(index) else { return }
             self?.retire(panel) {
@@ -21,6 +26,7 @@ final class ChooserPanelController {
         let rootView = ChooserView(
             url: url,
             browsers: browsers,
+            copyLinkShortcut: copyLinkShortcut,
             onSelect: { [weak self, weak panel] browser in
                 self?.retire(panel) {
                     onSelect(browser)
@@ -48,6 +54,7 @@ final class ChooserPanelController {
         url: URL,
         browser: Browser,
         profiles: [BrowserProfile],
+        copyLinkShortcut: CopyLinkShortcut,
         onSelect: @escaping (BrowserProfile) -> Void,
         onBack: @escaping () -> Void
     ) {
@@ -55,7 +62,7 @@ final class ChooserPanelController {
 
         let width = min(max(CGFloat(profiles.count + 1) * 112 + 56, 380), 760)
         let size = NSSize(width: width, height: 216)
-        let panel = makePanel(size: size, url: url)
+        let panel = makePanel(size: size, url: url, copyLinkShortcut: copyLinkShortcut)
         panel.onNumberKey = { [weak self, weak panel] index in
             guard profiles.indices.contains(index) else { return }
             self?.retire(panel) {
@@ -70,6 +77,7 @@ final class ChooserPanelController {
             url: url,
             browser: browser,
             profiles: profiles,
+            copyLinkShortcut: copyLinkShortcut,
             onSelect: { [weak self, weak panel] profile in
                 self?.retire(panel) {
                     onSelect(profile)
@@ -101,13 +109,14 @@ final class ChooserPanelController {
         }
     }
 
-    private func makePanel(size: NSSize, url: URL) -> ChooserPanel {
+    private func makePanel(size: NSSize, url: URL, copyLinkShortcut: CopyLinkShortcut) -> ChooserPanel {
         let panel = ChooserPanel(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
+        panel.copyLinkShortcut = copyLinkShortcut
         panel.onCopy = { [weak self, weak panel] in
             let pasteboard = NSPasteboard.general
             pasteboard.clearContents()
@@ -165,13 +174,27 @@ private final class ChooserPanel: NSPanel {
     var onEscape: (() -> Void)?
     var onNumberKey: ((Int) -> Void)?
     var onCopy: (() -> Void)?
+    var copyLinkShortcut = CopyLinkShortcut.defaultShortcut
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if copyLinkShortcut.matches(event) {
+            onCopy?()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 {
             onEscape?()
+            return
+        }
+
+        if copyLinkShortcut.matches(event) {
+            onCopy?()
             return
         }
 
@@ -180,10 +203,6 @@ private final class ChooserPanel: NSPanel {
             event.modifierFlags.intersection(blockedModifiers).isEmpty,
             let characters = event.charactersIgnoringModifiers
         {
-            if characters == "\\" {
-                onCopy?()
-                return
-            }
             if let number = Int(characters), (1...9).contains(number) {
                 onNumberKey?(number - 1)
                 return

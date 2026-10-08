@@ -3,6 +3,7 @@ import SwiftUI
 struct ChooserView: View {
     let url: URL
     let browsers: [Browser]
+    let copyLinkShortcut: CopyLinkShortcut
     let onSelect: (Browser) -> Void
     let onCopy: () -> Void
     let onCancel: () -> Void
@@ -36,7 +37,7 @@ struct ChooserView: View {
             }
 
             HStack(spacing: 10) {
-                CopyLinkButton(onCopy: onCopy)
+                CopyLinkButton(shortcut: copyLinkShortcut, onCopy: onCopy)
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 10) {
