@@ -21,6 +21,7 @@ profile, and keep the whole workflow on your Mac.
 ## Highlights
 
 - Choose a browser with a single number key.
+- Copy the full link from either picker with the **Copia link** button or `\`.
 - Continue the same shortcut flow to select a Chromium profile.
 - Create first-match rules for exact hosts, domain suffixes, text, or regular
   expressions.

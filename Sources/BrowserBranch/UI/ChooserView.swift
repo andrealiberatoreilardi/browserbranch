@@ -4,6 +4,7 @@ struct ChooserView: View {
     let url: URL
     let browsers: [Browser]
     let onSelect: (Browser) -> Void
+    let onCopy: () -> Void
     let onCancel: () -> Void
 
     @State private var hoveredBrowserID: String?
@@ -34,10 +35,14 @@ struct ChooserView: View {
                     .foregroundStyle(.tertiary)
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(Array(browsers.enumerated()), id: \.element.id) { index, browser in
-                        browserChoice(browser, at: index)
+            HStack(spacing: 10) {
+                CopyLinkButton(onCopy: onCopy)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(Array(browsers.enumerated()), id: \.element.id) { index, browser in
+                            browserChoice(browser, at: index)
+                        }
                     }
                 }
             }

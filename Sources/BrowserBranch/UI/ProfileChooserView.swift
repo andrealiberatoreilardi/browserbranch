@@ -5,6 +5,7 @@ struct ProfileChooserView: View {
     let browser: Browser
     let profiles: [BrowserProfile]
     let onSelect: (BrowserProfile) -> Void
+    let onCopy: () -> Void
     let onBack: () -> Void
 
     @State private var hoveredProfileID: String?
@@ -40,10 +41,14 @@ struct ProfileChooserView: View {
                     .foregroundStyle(.tertiary)
             }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 10) {
-                    ForEach(Array(profiles.enumerated()), id: \.element.id) { index, profile in
-                        profileChoice(profile, at: index)
+            HStack(spacing: 10) {
+                CopyLinkButton(height: 112, onCopy: onCopy)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(Array(profiles.enumerated()), id: \.element.id) { index, profile in
+                            profileChoice(profile, at: index)
+                        }
                     }
                 }
             }

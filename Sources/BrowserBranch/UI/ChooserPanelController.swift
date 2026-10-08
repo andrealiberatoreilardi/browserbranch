@@ -8,9 +8,9 @@ final class ChooserPanelController {
     func show(url: URL, browsers: [Browser], onSelect: @escaping (Browser) -> Void) {
         retire(panel)
 
-        let width = min(max(CGFloat(browsers.count) * 112 + 56, 360), 760)
+        let width = min(max(CGFloat(browsers.count + 1) * 112 + 56, 360), 760)
         let size = NSSize(width: width, height: 196)
-        let panel = makePanel(size: size)
+        let panel = makePanel(size: size, url: url)
         panel.onNumberKey = { [weak self, weak panel] index in
             guard browsers.indices.contains(index) else { return }
             self?.retire(panel) {
@@ -25,6 +25,9 @@ final class ChooserPanelController {
                 self?.retire(panel) {
                     onSelect(browser)
                 }
+            },
+            onCopy: { [weak panel] in
+                panel?.onCopy?()
             },
             onCancel: { [weak self, weak panel] in
                 self?.retire(panel)
@@ -50,9 +53,9 @@ final class ChooserPanelController {
     ) {
         retire(panel)
 
-        let width = min(max(CGFloat(profiles.count) * 112 + 56, 380), 760)
+        let width = min(max(CGFloat(profiles.count + 1) * 112 + 56, 380), 760)
         let size = NSSize(width: width, height: 216)
-        let panel = makePanel(size: size)
+        let panel = makePanel(size: size, url: url)
         panel.onNumberKey = { [weak self, weak panel] index in
             guard profiles.indices.contains(index) else { return }
             self?.retire(panel) {
@@ -71,6 +74,9 @@ final class ChooserPanelController {
                 self?.retire(panel) {
                     onSelect(profile)
                 }
+            },
+            onCopy: { [weak panel] in
+                panel?.onCopy?()
             },
             onBack: goBack
         )
@@ -95,13 +101,23 @@ final class ChooserPanelController {
         }
     }
 
-    private func makePanel(size: NSSize) -> ChooserPanel {
-        ChooserPanel(
+    private func makePanel(size: NSSize, url: URL) -> ChooserPanel {
+        let panel = ChooserPanel(
             contentRect: NSRect(origin: .zero, size: size),
             styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
+        panel.onCopy = { [weak self, weak panel] in
+            let pasteboard = NSPasteboard.general
+            pasteboard.clearContents()
+            guard pasteboard.setString(url.absoluteString, forType: .string) else {
+                NSSound.beep()
+                return
+            }
+            self?.retire(panel)
+        }
+        return panel
     }
 
     private func present<Content: View>(
@@ -148,6 +164,7 @@ final class ChooserPanelController {
 private final class ChooserPanel: NSPanel {
     var onEscape: (() -> Void)?
     var onNumberKey: ((Int) -> Void)?
+    var onCopy: (() -> Void)?
 
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
@@ -161,12 +178,16 @@ private final class ChooserPanel: NSPanel {
         let blockedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
         if
             event.modifierFlags.intersection(blockedModifiers).isEmpty,
-            let characters = event.charactersIgnoringModifiers,
-            let number = Int(characters),
-            (1...9).contains(number)
+            let characters = event.charactersIgnoringModifiers
         {
-            onNumberKey?(number - 1)
-            return
+            if characters == "\\" {
+                onCopy?()
+                return
+            }
+            if let number = Int(characters), (1...9).contains(number) {
+                onNumberKey?(number - 1)
+                return
+            }
         }
 
         super.keyDown(with: event)
